@@ -8,13 +8,16 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-def get_llm_provider() -> LLMProvider:
+def get_llm_provider(
+    provider_type: str | None = None,
+    api_key: str | None = None,
+) -> LLMProvider:
     """Mengambil LLM provider aktif berdasarkan konfigurasi settings."""
-    provider_type = settings.LLM_PROVIDER.lower()
+    selected_provider = (provider_type or settings.LLM_PROVIDER).lower()
 
-    if provider_type == "anthropic":
-        api_key = settings.ANTHROPIC_API_KEY
-        if not api_key:
+    if selected_provider == "anthropic":
+        selected_key = api_key if api_key is not None else settings.ANTHROPIC_API_KEY
+        if not selected_key:
             logger.warning(
                 "WARNING: LLM_PROVIDER diset ke 'anthropic' tetapi ANTHROPIC_API_KEY kosong! "
                 "Melakukan fallback otomatis ke 'SimulatedLLMProvider' untuk development."
@@ -22,24 +25,24 @@ def get_llm_provider() -> LLMProvider:
             return SimulatedLLMProvider()
         try:
             logger.info("Menggunakan AnthropicLLMProvider.")
-            return AnthropicLLMProvider(api_key=api_key)
+            return AnthropicLLMProvider(api_key=selected_key)
         except Exception as e:
             logger.error("Gagal menginisialisasi AnthropicLLMProvider. Fallback ke Simulated.")
             return SimulatedLLMProvider()
 
-    if provider_type in {"openai", "codex"}:
-        api_key = settings.OPENAI_API_KEY
-        if not api_key:
+    if selected_provider in {"openai", "codex"}:
+        selected_key = api_key if api_key is not None else settings.OPENAI_API_KEY
+        if not selected_key:
             logger.warning(
                 "WARNING: LLM_PROVIDER diset ke '%s' tetapi OPENAI_API_KEY kosong. "
                 "Melakukan fallback otomatis ke SimulatedLLMProvider.",
-                provider_type,
+                selected_provider,
             )
             return SimulatedLLMProvider()
         try:
             logger.info("Menggunakan OpenAILLMProvider.")
             return OpenAILLMProvider(
-                api_key=api_key,
+                api_key=selected_key,
                 base_url=settings.OPENAI_BASE_URL,
             )
         except Exception:

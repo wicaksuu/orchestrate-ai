@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from core.constants import AgentName, AgentStatus, MessageType, MessagePriority
@@ -56,6 +56,46 @@ class TeamConfig(BaseModel):
         "Tester": "claude-sonnet-4-6",
         "Integrator": "claude-sonnet-4-6",
     })
+
+class AgentAISetting(BaseModel):
+    """Public AI provider setting for one agent. API key is never returned."""
+    agent_name: str
+    provider: str = "simulated"
+    model: str = "simulated"
+    api_key_configured: bool = False
+    updated_at: Optional[datetime] = None
+
+class AgentAISettingUpdate(BaseModel):
+    """Update payload for one agent AI provider setting."""
+    agent_name: str
+    provider: str
+    model: str
+    api_key: Optional[str] = None
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        allowed = {"simulated", "openai", "codex", "anthropic"}
+        if normalized not in allowed:
+            raise ValueError(f"provider harus salah satu dari: {', '.join(sorted(allowed))}")
+        return normalized
+
+    @field_validator("agent_name", "model")
+    @classmethod
+    def trim_required_strings(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("field tidak boleh kosong")
+        return trimmed
+
+    @field_validator("api_key")
+    @classmethod
+    def normalize_api_key(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        return trimmed or None
 
 class ProjectState(BaseModel):
     """Status proyek saat ini."""

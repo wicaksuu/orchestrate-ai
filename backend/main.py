@@ -6,6 +6,7 @@ from api.routes import chat, config, agents, logs, project, events
 from api.websocket import manager
 from core.state_manager import state_manager
 from core.event_bus import event_bus
+from core.db import database_manager
 
 # Configure logging
 logging.basicConfig(
@@ -19,8 +20,10 @@ async def lifespan(app: FastAPI):
     logger.info("Memulai SIGMA Backend (Lifespan)...")
     await state_manager.connect()
     await event_bus.connect()
+    await database_manager.connect()
     yield
     logger.info("Mematikan SIGMA Backend (Lifespan)...")
+    await database_manager.disconnect()
     await state_manager.disconnect()
     await event_bus.disconnect()
 

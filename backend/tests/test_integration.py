@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from main import app
 from config import settings
+from core.db import database_manager
 
 @pytest.mark.asyncio
 async def test_project_lifecycle_integration():
@@ -93,3 +94,47 @@ async def test_project_lifecycle_integration():
         idx_completed = status_events.index("completed")
         
         assert idx_approved < idx_running < idx_completed
+
+
+@pytest.mark.asyncio
+async def test_agent_ai_settings_api_masks_api_key():
+    database_manager.use_fallback = True
+    database_manager._agent_ai_settings.clear()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        project_res = await ac.post(
+            "/api/project",
+            json={"name": "AIConfigProject", "description": "Agent AI settings test"},
+        )
+        assert project_res.status_code == 200
+        project_id = project_res.json()["project_id"]
+
+        save_res = await ac.post(
+            f"/api/config/agent-ai?project_id={project_id}",
+            json={
+                "agent_name": "LeadConsultant",
+                "provider": "openai",
+                "model": "gpt-5.5",
+                "api_key": "test-secret-token",
+            },
+        )
+        assert save_res.status_code == 200
+        saved = save_res.json()
+        assert saved["api_key_configured"] is True
+        assert "api_key" not in saved
+
+        get_res = await ac.get(f"/api/config/agent-ai?project_id={project_id}")
+        assert get_res.status_code == 200
+        public_settings = get_res.json()
+        assert public_settings == [
+            {
+                "agent_name": "LeadConsultant",
+                "provider": "openai",
+                "model": "gpt-5.5",
+                "api_key_configured": True,
+                "updated_at": public_settings[0]["updated_at"],
+            }
+        ]
+        assert "test-secret-token" not in get_res.text
+
+    database_manager._agent_ai_settings.clear()

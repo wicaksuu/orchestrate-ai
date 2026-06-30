@@ -52,6 +52,23 @@ export interface TeamConfig {
   models: Record<string, string>;
 }
 
+export interface AgentAISetting {
+  agent_name: string;
+  provider: AIProvider;
+  model: string;
+  api_key_configured: boolean;
+  updated_at?: string;
+}
+
+export type AIProvider = 'simulated' | 'openai' | 'codex' | 'anthropic';
+
+export interface AgentAISettingUpdate {
+  agent_name: string;
+  provider: AIProvider;
+  model: string;
+  api_key?: string;
+}
+
 export interface ProjectState {
   project_id: string;
   name: string;

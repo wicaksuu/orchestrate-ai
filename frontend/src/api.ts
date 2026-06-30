@@ -1,4 +1,13 @@
-import { AgentMessage, AgentState, TeamConfig, ProjectState, EscalationRequest, SigmaEvent } from './types';
+import {
+  AgentAISetting,
+  AgentAISettingUpdate,
+  AgentMessage,
+  AgentState,
+  TeamConfig,
+  ProjectState,
+  EscalationRequest,
+  SigmaEvent,
+} from './types';
 
 const API_BASE = '/api';
 
@@ -71,6 +80,25 @@ export const api = {
       body: JSON.stringify(config),
     });
     if (!res.ok) throw new Error('Gagal menyimpan konfigurasi');
+    return res.json();
+  },
+
+  async getAgentAISettings(projectId: string): Promise<AgentAISetting[]> {
+    const res = await fetch(`${API_BASE}/config/agent-ai?project_id=${projectId}`);
+    if (!res.ok) throw new Error('Gagal memuat konfigurasi AI agent');
+    return res.json();
+  },
+
+  async saveAgentAISetting(
+    projectId: string,
+    setting: AgentAISettingUpdate,
+  ): Promise<AgentAISetting> {
+    const res = await fetch(`${API_BASE}/config/agent-ai?project_id=${projectId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(setting),
+    });
+    if (!res.ok) throw new Error('Gagal menyimpan konfigurasi AI agent');
     return res.json();
   },
 

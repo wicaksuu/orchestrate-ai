@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
     WORKSPACE_ROOT: str = "/workspace/sandbox"
     PROJECT_NAME: str = "SIGMA Platform"
+    DATABASE_URL: str = "mysql://sigma:sigma_password@mariadb:3306/sigma"
+    SECRET_KEY: str = "dev-insecure-change-me"
     
     # LLM & Simulation Config
     LLM_PROVIDER: str = "simulated"

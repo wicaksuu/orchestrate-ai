@@ -12,7 +12,7 @@ docker compose up -d
 
 echo "=== 4. Menunggu Startup Backend ==="
 for i in {1..10}; do
-  if curl -s http://127.0.0.1/api/health > /dev/null; then
+  if curl -sf http://127.0.0.1/api/health > /dev/null; then
     echo "Backend telah siap!"
     break
   fi
@@ -38,16 +38,47 @@ wait_for_status() {
   return 1
 }
 
+create_project() {
+  local name="$1"
+  local description="$2"
+  local response=""
+  for idx in $(seq 1 10); do
+    response=$(curl -sf -X POST http://127.0.0.1/api/project \
+      -H 'Content-Type: application/json' \
+      -d "{\"name\":\"$name\",\"description\":\"$description\"}" || true)
+    if project_id=$(echo "$response" | python3 -c 'import sys,json; print(json.load(sys.stdin)["project_id"])' 2>/dev/null); then
+      echo "$project_id"
+      return 0
+    fi
+    echo "Menunggu endpoint project siap (percobaan $idx/10)..."
+    sleep 1
+  done
+  echo "ERROR: Gagal membuat project. Response terakhir:"
+  echo "$response"
+  return 1
+}
+
 echo "=== 5. Menjalankan Unit & Integration Tests ==="
 docker compose exec -T backend python -m pytest -o cache_dir=/tmp/pytest_cache
 
 echo "=== 6. Menjalankan Smoke Test Alur State Machine ==="
-P=$(curl -s -X POST http://127.0.0.1/api/project \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"SmokeAPI","description":"CI integration smoke test"}' \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin)["project_id"])')
+P=$(create_project "SmokeAPI" "CI integration smoke test")
 
 echo "Project ID Baru: $P"
+
+echo "=== 7. Smoke Test Konfigurasi AI Agent ==="
+AI_CONFIG=$(curl -s -X POST "http://127.0.0.1/api/config/agent-ai?project_id=$P" \
+  -H 'Content-Type: application/json' \
+  -d '{"agent_name":"LeadConsultant","provider":"simulated","model":"simulated","api_key":"dummy-smoke-token"}')
+
+echo "$AI_CONFIG" | python3 -c 'import sys,json; data=json.load(sys.stdin); assert data["api_key_configured"] is True; assert "api_key" not in data'
+
+AI_CONFIG_PUBLIC=$(curl -s "http://127.0.0.1/api/config/agent-ai?project_id=$P")
+echo "$AI_CONFIG_PUBLIC" | python3 -c 'import sys,json; data=json.load(sys.stdin); assert data[0]["agent_name"] == "LeadConsultant"; assert data[0]["api_key_configured"] is True; assert "api_key" not in data[0]'
+if echo "$AI_CONFIG_PUBLIC" | grep -q "dummy-smoke-token"; then
+  echo "ERROR: API token mentah bocor pada response publik."
+  exit 1
+fi
 
 # Kirim pesan awal
 curl -s -X POST http://127.0.0.1/api/chat \
@@ -73,7 +104,7 @@ curl -s -X POST http://127.0.0.1/api/chat \
 # Tunggu status beralih ke completed (workflow berjalan secara background)
 wait_for_status "$P" "completed"
 
-echo "=== 7. Verifikasi Kebersihan Cache Python ==="
+echo "=== 8. Verifikasi Kebersihan Cache Python ==="
 CACHE_FILES=$(find backend -name '__pycache__' -o -name '*.pyc' -o -name '.pytest_cache')
 if [ -n "$CACHE_FILES" ]; then
   echo "WARNING: Terdapat sisa cache di workspace:"

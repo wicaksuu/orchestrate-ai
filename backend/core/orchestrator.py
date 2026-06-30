@@ -9,6 +9,7 @@ from core.event_bus import event_bus
 from core.state_manager import state_manager
 from core.llm import get_llm_provider
 from core.llm.exceptions import LLMProviderError
+from core.db import database_manager
 from config import settings
 
 # Import agents
@@ -150,14 +151,27 @@ class Orchestrator:
                 llm_messages.append({"role": role, "content": msg.content})
 
             try:
-                response_content = await self.llm.complete(
+                runtime_setting = await database_manager.get_agent_ai_runtime(
+                    project_id,
+                    AgentName.LEAD_CONSULTANT.value,
+                )
+                llm_provider = self.llm
+                model = (
+                    settings.OPENAI_MODEL
+                    if settings.LLM_PROVIDER.lower() in {"openai", "codex"}
+                    else settings.DEFAULT_MODEL
+                )
+                if runtime_setting:
+                    llm_provider = get_llm_provider(
+                        provider_type=runtime_setting["provider"],
+                        api_key=runtime_setting.get("api_key"),
+                    )
+                    model = runtime_setting["model"]
+
+                response_content = await llm_provider.complete(
                     system_prompt=lc_agent.system_prompt,
                     messages=llm_messages,
-                    model=(
-                        settings.OPENAI_MODEL
-                        if settings.LLM_PROVIDER.lower() in {"openai", "codex"}
-                        else settings.DEFAULT_MODEL
-                    )
+                    model=model,
                 )
             except LLMProviderError as lpe:
                 logger.error(f"LLMProviderError terjadi: {lpe}")

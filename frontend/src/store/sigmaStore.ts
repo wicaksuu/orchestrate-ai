@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import { api } from '../api';
-import { AgentMessage, AgentState, TeamConfig, ProjectState, EscalationRequest, SigmaEvent } from '../types';
+import {
+  AgentAISetting,
+  AgentAISettingUpdate,
+  AgentMessage,
+  AgentState,
+  TeamConfig,
+  ProjectState,
+  EscalationRequest,
+  SigmaEvent,
+} from '../types';
 
 interface SigmaState {
   project: ProjectState | null;
@@ -8,6 +17,7 @@ interface SigmaState {
   messages: AgentMessage[];
   escalations: EscalationRequest[];
   teamConfig: TeamConfig | null;
+  agentAISettings: AgentAISetting[];
   events: SigmaEvent[];
   loading: boolean;
   error: string | null;
@@ -18,10 +28,12 @@ interface SigmaState {
   loadAgents: () => Promise<void>;
   loadLogs: () => Promise<void>;
   loadConfig: () => Promise<void>;
+  loadAgentAISettings: () => Promise<void>;
   loadEvents: () => Promise<void>;
   sendMessage: (content: string) => Promise<void>;
   resolveEscalation: (escalationId: string, response: string) => Promise<void>;
   updateConfig: (config: TeamConfig) => Promise<void>;
+  updateAgentAISetting: (setting: AgentAISettingUpdate) => Promise<void>;
   
   // Real-time updates handlers
   handleAgentStatusUpdate: (updatedAgent: AgentState) => void;
@@ -37,12 +49,13 @@ export const useSigmaStore = create<SigmaState>((set: any, get: any) => ({
   messages: [],
   escalations: [],
   teamConfig: null,
+  agentAISettings: [],
   events: [],
   loading: false,
   error: null,
 
   initProject: async (name: string, description = '') => {
-    set({ loading: true, error: null, messages: [], escalations: [], agents: [], events: [] });
+    set({ loading: true, error: null, messages: [], escalations: [], agents: [], events: [], agentAISettings: [] });
     try {
       const project = await api.createProject(name, description);
       set({ project, loading: false });
@@ -50,6 +63,7 @@ export const useSigmaStore = create<SigmaState>((set: any, get: any) => ({
       await get().loadAgents();
       await get().loadLogs();
       await get().loadConfig();
+      await get().loadAgentAISettings();
       await get().loadEvents();
     } catch (err: any) {
       set({ error: err.message, loading: false });
@@ -57,13 +71,14 @@ export const useSigmaStore = create<SigmaState>((set: any, get: any) => ({
   },
 
   loadProject: async (projectId: string) => {
-    set({ loading: true, error: null, messages: [], escalations: [], agents: [], events: [] });
+    set({ loading: true, error: null, messages: [], escalations: [], agents: [], events: [], agentAISettings: [] });
     try {
       const project = await api.getProject(projectId);
       set({ project, loading: false });
       await get().loadAgents();
       await get().loadLogs();
       await get().loadConfig();
+      await get().loadAgentAISettings();
       await get().loadEvents();
     } catch (err: any) {
       set({ error: err.message, loading: false });
@@ -100,6 +115,17 @@ export const useSigmaStore = create<SigmaState>((set: any, get: any) => ({
       set({ teamConfig });
     } catch (err: any) {
       logger.error('Gagal load team config', err);
+    }
+  },
+
+  loadAgentAISettings: async () => {
+    const { project } = get();
+    if (!project) return;
+    try {
+      const agentAISettings = await api.getAgentAISettings(project.project_id);
+      set({ agentAISettings });
+    } catch (err: any) {
+      logger.error('Gagal load agent AI settings', err);
     }
   },
 
@@ -143,6 +169,22 @@ export const useSigmaStore = create<SigmaState>((set: any, get: any) => ({
     try {
       await api.saveTeamConfig(project.project_id, config);
       set({ teamConfig: config });
+    } catch (err: any) {
+      set({ error: err.message });
+    }
+  },
+
+  updateAgentAISetting: async (setting: AgentAISettingUpdate) => {
+    const { project } = get();
+    if (!project) return;
+    try {
+      const saved = await api.saveAgentAISetting(project.project_id, setting);
+      set((state: SigmaState) => ({
+        agentAISettings: [
+          ...state.agentAISettings.filter((item) => item.agent_name !== saved.agent_name),
+          saved,
+        ],
+      }));
     } catch (err: any) {
       set({ error: err.message });
     }

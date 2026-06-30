@@ -10,6 +10,21 @@ services:
     networks:
       - sigma_network
 
+  mariadb:
+    image: mariadb:11
+    container_name: sigma_mariadb
+    environment:
+      - MARIADB_DATABASE=${MARIADB_DATABASE:-sigma}
+      - MARIADB_USER=${MARIADB_USER:-sigma}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-sigma_password}
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-sigma_root_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - sigma_network
+
   backend:
     build:
       context: ./backend
@@ -24,6 +39,8 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
       - DEFAULT_MODEL=${DEFAULT_MODEL:-claude-sonnet-4-6}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-5.5}
+      - DATABASE_URL=mysql://${MARIADB_USER:-sigma}:${MARIADB_PASSWORD:-sigma_password}@mariadb:3306/${MARIADB_DATABASE:-sigma}
+      - SECRET_KEY=${SECRET_KEY:-dev-insecure-change-me}
     volumes:
       - ./backend:/app
       - sandbox_workspace:/workspace/sandbox
@@ -31,6 +48,7 @@ services:
       - "8000:8000"
     depends_on:
       - redis
+      - mariadb
     networks:
       - sigma_network
 
@@ -48,6 +66,7 @@ services:
 
 volumes:
   redis_data:
+  mariadb_data:
   sandbox_workspace:
 
 networks:
