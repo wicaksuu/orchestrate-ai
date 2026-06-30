@@ -76,7 +76,7 @@ class AgentAISettingUpdate(BaseModel):
     @classmethod
     def validate_provider(cls, value: str) -> str:
         normalized = value.strip().lower()
-        allowed = {"simulated", "openai", "codex", "anthropic"}
+        allowed = {"simulated", "openai", "codex", "anthropic", "gemini"}
         if normalized not in allowed:
             raise ValueError(f"provider harus salah satu dari: {', '.join(sorted(allowed))}")
         return normalized
@@ -97,12 +97,18 @@ class AgentAISettingUpdate(BaseModel):
         trimmed = value.strip()
         return trimmed or None
 
+class KeyValidationRequest(BaseModel):
+    """Payload request untuk memvalidasi kredensial API Key AI."""
+    provider: str
+    api_key: str
+
 class ProjectState(BaseModel):
     """Status proyek saat ini."""
     project_id: str
     name: str
     description: Optional[str] = None
     status: str = "init"  # init, discovery, planning, development, testing, completed
+    external_path: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

@@ -60,7 +60,7 @@ export interface AgentAISetting {
   updated_at?: string;
 }
 
-export type AIProvider = 'simulated' | 'openai' | 'codex' | 'anthropic';
+export type AIProvider = 'simulated' | 'openai' | 'codex' | 'anthropic' | 'gemini';
 
 export interface AgentAISettingUpdate {
   agent_name: string;
@@ -74,6 +74,7 @@ export interface ProjectState {
   name: string;
   description?: string;
   status: string;
+  external_path?: string;
   created_at: string;
   updated_at: string;
 }
@@ -96,4 +97,11 @@ export interface SigmaEvent {
   event_type: string;
   payload: any;
   timestamp: string;
+}
+
+export interface FileItem {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number;
 }

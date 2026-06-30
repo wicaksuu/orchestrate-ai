@@ -18,29 +18,31 @@ function AgentCard({ agent }: { agent: AgentState }) {
   const cfg = STATUS_CONFIGS[agent.status] || STATUS_CONFIGS.IDLE;
 
   return (
-    <div className={`p-4 rounded-xl border glass-card transition-all duration-300 hover:scale-[1.02] ${cfg.bg} ${cfg.anim}`}>
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className={`p-2 rounded-lg bg-slate-900/60 ${cfg.color}`}>
-            <Cpu className="h-5 w-5" />
+    <div className={`p-3.5 rounded-xl border glass-card transition-all duration-300 hover:scale-[1.02] ${cfg.bg} ${cfg.anim} flex flex-col justify-between h-full`}>
+      <div>
+        <div className="flex items-center justify-between gap-2 border-b border-slate-900/20 pb-2 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`p-1.5 rounded-lg bg-slate-900/60 ${cfg.color} shrink-0`}>
+              <Cpu className="h-4.5 w-4.5" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="font-semibold text-white text-xs truncate" title={agent.name}>{agent.name}</h4>
+              <span className={`inline-flex items-center gap-1 text-[9px] font-extrabold tracking-wide uppercase mt-0.5 ${cfg.color}`}>
+                {agent.status}
+              </span>
+            </div>
           </div>
-          <div>
-            <h4 className="font-semibold text-white text-sm">{agent.name}</h4>
-            <span className={`inline-flex items-center gap-1 text-[10px] font-bold tracking-wide uppercase mt-0.5 ${cfg.color}`}>
-              {agent.status}
-            </span>
+          <div className="text-[9px] text-slate-400 bg-slate-950/80 px-2 py-0.5 rounded-md border border-slate-900/60 font-mono shrink-0">
+            {agent.token_count.toLocaleString()} tok
           </div>
         </div>
-        <div className="text-right text-[11px] text-slate-500">
-          <span>{agent.token_count.toLocaleString()} tokens</span>
-        </div>
-      </div>
 
-      {agent.last_message && (
-        <div className="mt-3 text-xs bg-slate-950/60 p-2.5 rounded-lg text-slate-300 border border-slate-900 line-clamp-2">
-          {agent.last_message}
-        </div>
-      )}
+        {agent.last_message && (
+          <div className="mt-2.5 text-[11px] bg-slate-950/60 p-2 rounded-lg text-slate-300 border border-slate-900 line-clamp-2 leading-relaxed">
+            {agent.last_message}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   ProjectState,
   EscalationRequest,
   SigmaEvent,
+  FileItem,
 } from './types';
 
 const API_BASE = '/api';
@@ -18,11 +19,11 @@ export const api = {
     return res.json();
   },
 
-  async createProject(name: string, description = ''): Promise<ProjectState> {
+  async createProject(name: string, description = '', externalPath = ''): Promise<ProjectState> {
     const res = await fetch(`${API_BASE}/project`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ name, description, external_path: externalPath || null }),
     });
     if (!res.ok) throw new Error('Gagal membuat proyek');
     return res.json();
@@ -105,6 +106,22 @@ export const api = {
   async getEvents(projectId: string, limit = 50): Promise<SigmaEvent[]> {
     const res = await fetch(`${API_BASE}/events?project_id=${projectId}&limit=${limit}`);
     if (!res.ok) throw new Error('Gagal memuat event history');
+    return res.json();
+  },
+
+  async validateApiKey(provider: string, apiKey: string): Promise<{ valid: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/config/validate-key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, api_key: apiKey }),
+    });
+    if (!res.ok) throw new Error('Gagal memvalidasi API Key');
+    return res.json();
+  },
+
+  async getProjectFiles(projectId: string): Promise<FileItem[]> {
+    const res = await fetch(`${API_BASE}/project/files?project_id=${projectId}`);
+    if (!res.ok) throw new Error('Gagal memuat daftar berkas');
     return res.json();
   },
 };

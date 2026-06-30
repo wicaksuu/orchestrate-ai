@@ -10,11 +10,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-insecure-change-me"
     
     # LLM & Simulation Config
-    LLM_PROVIDER: str = "simulated"
+    LLM_PROVIDER: str = "gemini"
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
-    DEFAULT_MODEL: str = "claude-sonnet-4-6"
+    DEFAULT_MODEL: str = "gemini-1.5-flash"
     OPENAI_MODEL: str = "gpt-5.5"
     SIMULATION_STEP_DELAY_SECONDS: float = 2.0
     

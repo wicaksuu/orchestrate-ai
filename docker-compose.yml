@@ -30,6 +30,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: sigma_backend
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     environment:
       - REDIS_URL=redis://redis:6379/0
       - WORKSPACE_ROOT=/workspace/sandbox
@@ -43,7 +46,8 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-insecure-change-me}
     volumes:
       - ./backend:/app
-      - sandbox_workspace:/workspace/sandbox
+      - ${EXTERNAL_PROJECT_PATH:-./sandbox}:/workspace/sandbox
+      - /Users:/Users
     ports:
       - "8000:8000"
     depends_on:
@@ -51,7 +55,7 @@ services:
       - mariadb
     networks:
       - sigma_network
-
+ 
   nginx:
     build:
       context: ./frontend
@@ -63,11 +67,10 @@ services:
       - backend
     networks:
       - sigma_network
-
+ 
 volumes:
   redis_data:
   mariadb_data:
-  sandbox_workspace:
 
 networks:
   sigma_network:

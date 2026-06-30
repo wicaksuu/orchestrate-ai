@@ -24,12 +24,13 @@ class SandboxExecutor:
         # Pastikan direktori workspace ada
         os.makedirs(self.workspace_root, exist_ok=True)
 
-    def is_safe_path(self, path: str) -> bool:
-        """Memastikan path berada di bawah WORKSPACE_ROOT."""
+    def is_safe_path(self, path: str, workspace_root: str = None) -> bool:
+        """Memastikan path berada di bawah workspace_root."""
+        root = workspace_root or self.workspace_root
         abs_path = os.path.abspath(path)
-        return abs_path.startswith(self.workspace_root)
+        return abs_path.startswith(root)
 
-    async def execute(self, cmd: SandboxCommand, cwd_subpath: str = "") -> SandboxResult:
+    async def execute(self, cmd: SandboxCommand, cwd_subpath: str = "", project_id: str = None) -> SandboxResult:
         """Menjalankan perintah whitelisted di dalam sandbox secara asinkron."""
         # 1. Validasi whitelist
         if cmd.command not in COMMAND_WHITELIST:
@@ -41,9 +42,22 @@ class SandboxExecutor:
                 duration_ms=0.0
             )
 
-        # 2. Validasi working directory
-        cwd_path = os.path.abspath(os.path.join(self.workspace_root, cwd_subpath))
-        if not self.is_safe_path(cwd_path):
+        # 2. Tentukan workspace root (dukungan external_path per proyek)
+        current_workspace_root = self.workspace_root
+        if project_id:
+            from core.state_manager import state_manager
+            proj_state = await state_manager.get_project_state(project_id)
+            if proj_state and proj_state.external_path:
+                current_workspace_root = os.path.abspath(proj_state.external_path)
+                os.makedirs(current_workspace_root, exist_ok=True)
+            else:
+                # Isolasi folder per project_id jika tidak diset external_path
+                current_workspace_root = os.path.abspath(os.path.join(self.workspace_root, project_id))
+                os.makedirs(current_workspace_root, exist_ok=True)
+
+        # 3. Validasi working directory
+        cwd_path = os.path.abspath(os.path.join(current_workspace_root, cwd_subpath))
+        if not self.is_safe_path(cwd_path, current_workspace_root):
             logger.warning(f"Percobaan directory traversal terdeteksi: {cwd_path}")
             return SandboxResult(
                 stdout="",

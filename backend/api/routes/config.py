@@ -50,3 +50,61 @@ async def save_agent_ai_setting(project_id: str, setting: AgentAISettingUpdate):
         )
     )
     return saved
+
+import httpx
+from core.schemas import KeyValidationRequest
+
+@router.post("/validate-key")
+async def validate_api_key(req: KeyValidationRequest):
+    """Memverifikasi validitas API Key AI secara dinamis dengan memanggil endpoint test provider."""
+    provider = req.provider.strip().lower()
+    key = req.api_key.strip()
+    
+    if not key:
+        return {"valid": False, "message": "API Key kosong."}
+        
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            if provider == "openai":
+                headers = {"Authorization": f"Bearer {key}"}
+                # Panggil list models (test standard OpenAI)
+                res = await client.get("https://api.openai.com/v1/models", headers=headers)
+                if res.status_code == 200:
+                    return {"valid": True, "message": "Koneksi sukses! API Key OpenAI valid."}
+                else:
+                    return {"valid": False, "message": f"Koneksi gagal (Status {res.status_code}): Kredensial tidak valid."}
+                    
+            elif provider == "anthropic":
+                headers = {
+                    "x-api-key": key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json"
+                }
+                # Panggil message endpoint dengan payload minimalis untuk verifikasi token
+                payload = {
+                    "model": "claude-3-haiku-20240307",
+                    "max_tokens": 1,
+                    "messages": [{"role": "user", "content": "test"}]
+                }
+                res = await client.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload)
+                if res.status_code in (200, 400): 
+                    # 200 = valid, 400 = bad request (bisa terjadi jika parameter model salah, tapi auth berhasil)
+                    # Jika auth gagal, anthropic mengembalikan 401 Unauthorized
+                    if res.status_code == 401:
+                        return {"valid": False, "message": "Koneksi gagal (Status 401): API Key Anthropic tidak valid."}
+                    return {"valid": True, "message": "Koneksi sukses! API Key Anthropic valid."}
+                else:
+                    return {"valid": False, "message": f"Koneksi gagal (Status {res.status_code}): Kredensial tidak valid."}
+                    
+            elif provider == "gemini":
+                # Panggil endpoint list models Gemini untuk verifikasi key
+                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+                res = await client.get(url)
+                if res.status_code == 200:
+                    return {"valid": True, "message": "Koneksi sukses! API Key Gemini valid."}
+                else:
+                    return {"valid": False, "message": f"Koneksi gagal (Status {res.status_code}): API Key Gemini tidak valid."}
+            else:
+                return {"valid": False, "message": f"Provider '{provider}' tidak didukung untuk validasi langsung."}
+        except Exception as e:
+            return {"valid": False, "message": f"Gagal menghubungi server provider: {str(e)}"}

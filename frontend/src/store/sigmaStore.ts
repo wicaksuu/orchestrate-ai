@@ -23,7 +23,7 @@ interface SigmaState {
   error: string | null;
 
   // Actions
-  initProject: (name: string, description?: string) => Promise<void>;
+  initProject: (name: string, description?: string, externalPath?: string) => Promise<void>;
   loadProject: (projectId: string) => Promise<void>;
   loadAgents: () => Promise<void>;
   loadLogs: () => Promise<void>;
@@ -54,10 +54,10 @@ export const useSigmaStore = create<SigmaState>((set: any, get: any) => ({
   loading: false,
   error: null,
 
-  initProject: async (name: string, description = '') => {
+  initProject: async (name: string, description = '', externalPath = '') => {
     set({ loading: true, error: null, messages: [], escalations: [], agents: [], events: [], agentAISettings: [] });
     try {
-      const project = await api.createProject(name, description);
+      const project = await api.createProject(name, description, externalPath);
       set({ project, loading: false });
       // Load initial data
       await get().loadAgents();
