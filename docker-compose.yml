@@ -1,0 +1,49 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: sigma_redis
+    command: redis-server --save 60 1
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sigma_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sigma_backend
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - WORKSPACE_ROOT=/workspace/sandbox
+    volumes:
+      - ./backend:/app
+      - sandbox_workspace:/workspace/sandbox
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    networks:
+      - sigma_network
+
+  nginx:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sigma_nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - sigma_network
+
+volumes:
+  redis_data:
+  sandbox_workspace:
+
+networks:
+  sigma_network:
+    driver: bridge
