@@ -18,6 +18,12 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - WORKSPACE_ROOT=/workspace/sandbox
+      - LLM_PROVIDER=${LLM_PROVIDER:-simulated}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-claude-sonnet-4-6}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-5.5}
     volumes:
       - ./backend:/app
       - sandbox_workspace:/workspace/sandbox

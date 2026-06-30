@@ -153,7 +153,11 @@ class Orchestrator:
                 response_content = await self.llm.complete(
                     system_prompt=lc_agent.system_prompt,
                     messages=llm_messages,
-                    model=settings.DEFAULT_MODEL
+                    model=(
+                        settings.OPENAI_MODEL
+                        if settings.LLM_PROVIDER.lower() in {"openai", "codex"}
+                        else settings.DEFAULT_MODEL
+                    )
                 )
             except LLMProviderError as lpe:
                 logger.error(f"LLMProviderError terjadi: {lpe}")

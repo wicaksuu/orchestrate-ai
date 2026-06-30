@@ -33,6 +33,13 @@ Langkah mudah untuk memulai seluruh platform menggunakan Docker Compose:
   LLM_PROVIDER=anthropic
   ANTHROPIC_API_KEY=your_api_key_here
   ```
+- **OpenAI/Codex Integration:** Jika Anda memiliki API key OpenAI/Codex, gunakan provider OpenAI melalui Responses API:
+  ```env
+  LLM_PROVIDER=openai
+  OPENAI_API_KEY=your_openai_api_key_here
+  OPENAI_MODEL=gpt-5.5
+  ```
+  Alias `LLM_PROVIDER=codex` juga didukung dan akan memakai provider OpenAI yang sama. Jangan pernah menaruh API key di chat atau commit; simpan hanya di `.env`.
 - **Redis Persistence:** Redis digunakan sebagai message broker/event bus dan penyimpan status persistence log.
 - **Single Active Workflow & Chat Concurrency Limitation:** Platform berasumsi hanya ada satu workflow aktif yang berjalan secara paralel untuk masing-masing project ID pada satu waktu. Endpoint `/api/chat` memproses pesan secara asinkron (fire-and-forget). Oleh karena itu, pemanggil (caller) disarankan untuk tidak mengirim pesan berturut-turut tanpa menunggu respons status/event sebelumnya (misalnya via polling status project atau memantau WebSocket stream) guna menghindari race condition status proyek.
 
