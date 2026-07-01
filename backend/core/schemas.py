@@ -60,8 +60,8 @@ class TeamConfig(BaseModel):
 class AgentAISetting(BaseModel):
     """Public AI provider setting for one agent. API key is never returned."""
     agent_name: str
-    provider: str = "simulated"
-    model: str = "simulated"
+    provider: str = "gemini"
+    model: str = "gemini-flash-latest"
     api_key_configured: bool = False
     updated_at: Optional[datetime] = None
 
@@ -76,7 +76,7 @@ class AgentAISettingUpdate(BaseModel):
     @classmethod
     def validate_provider(cls, value: str) -> str:
         normalized = value.strip().lower()
-        allowed = {"simulated", "openai", "codex", "anthropic", "gemini"}
+        allowed = {"openai", "codex", "anthropic", "gemini"}
         if normalized not in allowed:
             raise ValueError(f"provider harus salah satu dari: {', '.join(sorted(allowed))}")
         return normalized

@@ -30,20 +30,12 @@ class BaseAgent:
         logger.info(f"Agent {self.name.value} berubah status menjadi {status.value} untuk project {project_id}")
 
     async def process_message(self, project_id: str, sender: str, content: str) -> str:
-        """Memproses pesan masuk. Di kelas turunan, fungsi ini akan disimulasikan atau memanggil LLM."""
-        self.history.append({"role": "user", "content": f"{sender}: {content}"})
-        await self.update_status(AgentStatus.THINKING, project_id=project_id)
-        
-        # Simulasi pengerjaan / thinking time
-        import asyncio
-        await asyncio.sleep(1)
-        
-        await self.update_status(AgentStatus.WORKING, project_id=project_id)
-        await asyncio.sleep(1.5)
-        
-        response = f"Respon simulasi dari {self.name.value} untuk {sender}."
-        self.history.append({"role": "assistant", "content": response})
-        self.token_count += len(content.split()) + len(response.split())  # estimasi token sederhana
-        
-        await self.update_status(AgentStatus.IDLE, response, project_id=project_id)
-        return response
+        """
+        Method ini TIDAK LAGI digunakan oleh orchestrator.
+        Semua panggilan LLM dilakukan langsung oleh Orchestrator via _get_agent_llm().
+        Dipertahankan sebagai interface agar agent bisa digunakan secara standalone jika diperlukan.
+        """
+        raise NotImplementedError(
+            f"Agent {self.name.value}.process_message() tidak diimplementasikan. "
+            f"Gunakan Orchestrator untuk menjalankan agent via LLM provider."
+        )

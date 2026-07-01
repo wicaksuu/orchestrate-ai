@@ -80,6 +80,55 @@ class StateManager:
             "updated_at": state.updated_at
         }
 
+    async def get_all_projects(self) -> List[ProjectState]:
+        """Mengambil semua state proyek yang ada (dari Redis atau in-memory fallback)."""
+        projects = []
+        if not self.use_fallback and self.redis_client:
+            try:
+                keys = await self.redis_client.keys("sigma:project:*:state")
+                for key in keys:
+                    data = await self.redis_client.hgetall(key)
+                    if data:
+                        projects.append(ProjectState(
+                            project_id=data["project_id"],
+                            name=data["name"],
+                            description=data.get("description"),
+                            status=data.get("status", "init"),
+                            created_at=datetime.fromisoformat(data["created_at"]),
+                            updated_at=datetime.fromisoformat(data["updated_at"])
+                        ))
+                return sorted(projects, key=lambda x: x.updated_at, reverse=True)
+            except Exception as e:
+                logger.error(f"Gagal get_all_projects dari Redis: {e}")
+                
+        for pid, data in self._project_states.items():
+            projects.append(ProjectState(**data))
+        return sorted(projects, key=lambda x: x.updated_at, reverse=True)
+    async def delete_project(self, project_id: str) -> bool:
+        """Menghapus data proyek secara permanen dari Redis atau in-memory."""
+        if not self.use_fallback and self.redis_client:
+            try:
+                keys_to_delete = await self.redis_client.keys(f"sigma:project:{project_id}:*")
+                if keys_to_delete:
+                    await self.redis_client.delete(*keys_to_delete)
+                return True
+            except Exception as e:
+                logger.error(f"Gagal menghapus proyek {project_id} dari Redis: {e}")
+                return False
+        
+        # In-memory fallback cleanup
+        self._project_states.pop(project_id, None)
+        self._team_configs.pop(project_id, None)
+        self._messages.pop(project_id, None)
+        self._escalations.pop(project_id, None)
+        
+        # Hapus agent states juga
+        keys_to_remove = [k for k in self._agent_states.keys() if k.startswith(f"{project_id}:")]
+        for k in keys_to_remove:
+            self._agent_states.pop(k, None)
+            
+        return True
+
     # --- Team Config ---
     async def get_team_config(self, project_id: str) -> TeamConfig:
         key = f"sigma:project:{project_id}:team_config"

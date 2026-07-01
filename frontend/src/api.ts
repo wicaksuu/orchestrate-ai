@@ -19,6 +19,12 @@ export const api = {
     return res.json();
   },
 
+  async getProjectList(): Promise<ProjectState[]> {
+    const res = await fetch(`${API_BASE}/project/list`);
+    if (!res.ok) throw new Error('Gagal memuat riwayat proyek');
+    return res.json();
+  },
+
   async createProject(name: string, description = '', externalPath = ''): Promise<ProjectState> {
     const res = await fetch(`${API_BASE}/project`, {
       method: 'POST',
@@ -27,6 +33,23 @@ export const api = {
     });
     if (!res.ok) throw new Error('Gagal membuat proyek');
     return res.json();
+  },
+
+  async updateProject(projectId: string, name: string, description = ''): Promise<ProjectState> {
+    const res = await fetch(`${API_BASE}/project?project_id=${projectId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description }),
+    });
+    if (!res.ok) throw new Error('Gagal memperbarui proyek');
+    return res.json();
+  },
+
+  async deleteProject(projectId: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/project?project_id=${projectId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Gagal menghapus proyek');
   },
 
   async getAgents(projectId?: string): Promise<AgentState[]> {

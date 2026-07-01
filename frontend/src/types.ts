@@ -60,7 +60,7 @@ export interface AgentAISetting {
   updated_at?: string;
 }
 
-export type AIProvider = 'simulated' | 'openai' | 'codex' | 'anthropic' | 'gemini';
+export type AIProvider = 'openai' | 'codex' | 'anthropic' | 'gemini';
 
 export interface AgentAISettingUpdate {
   agent_name: string;

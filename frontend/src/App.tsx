@@ -8,14 +8,22 @@ import { CommLog } from './components/CommLog';
 import { TeamConfigPanel } from './components/TeamConfigPanel';
 import { AgentVisualizer } from './components/AgentVisualizer';
 import { FileExplorer } from './components/FileExplorer';
-import { Cpu, Plus, FolderGit, MessageSquare, Zap, Settings, LogOut, Terminal, LayoutGrid, Sidebar, Eye, EyeOff } from 'lucide-react';
+import { Cpu, Plus, FolderGit, MessageSquare, Zap, Settings, LogOut, Terminal, LayoutGrid, Sidebar, Eye, EyeOff, Trash2, Edit2, Check, X } from 'lucide-react';
 
 export default function App() {
-  const { project, initProject, loadProject, loading, error } = useSigmaStore();
+  const { project, projectList, fetchProjectList, initProject, loadProject, deleteProject, updateProjectDetails, loading, error } = useSigmaStore();
   const [projName, setProjName] = useState('');
   const [projDesc, setProjDesc] = useState('');
   const [projExtPath, setProjExtPath] = useState('');
   const [activeTab, setActiveTab] = useState<'workspace' | 'visualizer' | 'settings'>('workspace');
+
+  // Edit state
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  
+  // Selection state
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
 
   // Collapsible panel states for responsiveness
   const [showFileExplorer, setShowFileExplorer] = useState(true);
@@ -26,6 +34,7 @@ export default function App() {
 
   // Inisialisasi otomatis default project jika tidak ada project tersimpan
   useEffect(() => {
+    fetchProjectList(); // Muat histori dari backend
     const cachedProjId = localStorage.getItem('sigma_active_project_id');
     if (cachedProjId) {
       loadProject(cachedProjId);
@@ -52,82 +61,227 @@ export default function App() {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none"></div>
 
-        <div className="w-full max-w-md glass-panel p-8 rounded-2xl relative z-10 space-y-6">
-          <div className="text-center space-y-2">
-            <div className="inline-flex p-3 bg-blue-600/10 rounded-xl text-blue-400 mb-2 border border-blue-500/10">
-              <Cpu className="h-8 w-8 animate-pulse" />
+        <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+          {/* Kolom Kiri: Form Buat Proyek Baru */}
+          <div className="glass-panel p-8 rounded-2xl space-y-6">
+            <div className="text-center space-y-2">
+              <div className="inline-flex p-3 bg-blue-600/10 rounded-xl text-blue-400 mb-2 border border-blue-500/10">
+                <Cpu className="h-8 w-8 animate-pulse" />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-white">SIGMA Platform</h1>
+              <p className="text-sm text-slate-400">
+                Supervised Intelligent Group of Multi-Agents
+              </p>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">SIGMA Platform</h1>
-            <p className="text-sm text-slate-400">
-              Supervised Intelligent Group of Multi-Agents
-            </p>
+
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Nama Proyek
+                </label>
+                <input
+                  type="text"
+                  value={projName}
+                  onChange={(e) => setProjName(e.target.value)}
+                  placeholder="misal: Driver YZ125 STM32"
+                  required
+                  className="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-blue-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Deskripsi Singkat
+                </label>
+                <textarea
+                  value={projDesc}
+                  onChange={(e) => setProjDesc(e.target.value)}
+                  placeholder="Spesifikasi modul atau goal utama proyek..."
+                  rows={3}
+                  className="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-blue-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Path Direktori Lokal (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={projExtPath}
+                  onChange={(e) => setProjExtPath(e.target.value)}
+                  placeholder="misal: /Users/username/Documents/my-project"
+                  className="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-blue-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Penting: Pastikan path ini berada di bawah direktori home Anda (/Users).
+                </p>
+              </div>
+
+              {error && (
+                <p className="text-xs text-rose-500 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition active:scale-95 shadow-lg shadow-blue-900/30 disabled:opacity-50"
+              >
+                {loading ? (
+                  <span>Membuat Proyek...</span>
+                ) : (
+                  <>
+                    <Plus className="h-4.5 w-4.5" />
+                    Mulai Proyek Baru
+                  </>
+                )}
+              </button>
+            </form>
           </div>
 
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Nama Proyek
-              </label>
-              <input
-                type="text"
-                value={projName}
-                onChange={(e) => setProjName(e.target.value)}
-                placeholder="misal: Driver YZ125 STM32"
-                required
-                className="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-blue-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Deskripsi Singkat
-              </label>
-              <textarea
-                value={projDesc}
-                onChange={(e) => setProjDesc(e.target.value)}
-                placeholder="Spesifikasi modul atau goal utama proyek..."
-                rows={3}
-                className="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-blue-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Path Direktori Lokal (Opsional)
-              </label>
-              <input
-                type="text"
-                value={projExtPath}
-                onChange={(e) => setProjExtPath(e.target.value)}
-                placeholder="misal: /Users/username/Documents/my-project"
-                className="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-blue-500 text-white rounded-xl px-4 py-3 text-sm outline-none transition"
-              />
-              <p className="text-[10px] text-slate-500">
-                Penting: Pastikan path ini berada di bawah direktori home Anda (/Users).
-              </p>
-            </div>
-
-            {error && (
-              <p className="text-xs text-rose-500 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition active:scale-95 shadow-lg shadow-blue-900/30 disabled:opacity-50"
-            >
-              {loading ? (
-                <span>Membuat Proyek...</span>
-              ) : (
-                <>
-                  <Plus className="h-4.5 w-4.5" />
-                  Mulai Proyek Baru
-                </>
+          {/* Kolom Kanan: Riwayat Proyek */}
+          <div className="glass-panel p-8 rounded-2xl flex flex-col max-h-[600px]">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-3">
+                {projectList.length > 0 && (
+                  <input 
+                    type="checkbox"
+                    checked={projectList.length > 0 && selectedProjects.length === projectList.length}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedProjects(projectList.map(p => p.project_id));
+                      else setSelectedProjects([]);
+                    }}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-800 accent-blue-500 cursor-pointer"
+                    title="Pilih Semua"
+                  />
+                )}
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <FolderGit className="h-5 w-5 text-blue-400" /> Riwayat Proyek
+                </h2>
+              </div>
+              {selectedProjects.length > 0 && (
+                <button
+                  onClick={async () => {
+                    if (window.confirm(`Hapus permanen ${selectedProjects.length} proyek terpilih beserta isinya?`)) {
+                      for (const pid of selectedProjects) {
+                        try {
+                          await deleteProject(pid);
+                        } catch(e) {
+                          console.error("Gagal hapus", pid);
+                        }
+                      }
+                      setSelectedProjects([]);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 hover:text-rose-300 rounded-lg text-xs transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Hapus ({selectedProjects.length})
+                </button>
               )}
-            </button>
-          </form>
+            </div>
+            <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+              {projectList.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                  <FolderGit className="h-10 w-10 mb-2 opacity-50" />
+                  <p className="text-sm">Belum ada proyek.</p>
+                </div>
+              ) : (
+                projectList.map((p) => (
+                  <div key={p.project_id} className="relative w-full flex gap-3 p-4 rounded-xl bg-slate-900/50 border border-slate-800 hover:border-blue-500/50 hover:bg-blue-900/20 transition group">
+                    <div className="relative z-20 flex items-start pt-1">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedProjects.includes(p.project_id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedProjects([...selectedProjects, p.project_id]);
+                          else setSelectedProjects(selectedProjects.filter(id => id !== p.project_id));
+                        }}
+                        className="w-4 h-4 rounded border-slate-700 bg-slate-800 accent-blue-500 cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                    {editingProjectId === p.project_id ? (
+                      <div className="space-y-3 relative z-20">
+                        <input
+                          autoFocus
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 text-white rounded p-2 text-sm outline-none"
+                        />
+                        <textarea
+                          value={editDesc}
+                          onChange={(e) => setEditDesc(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-700 text-slate-400 rounded p-2 text-xs outline-none"
+                          rows={2}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => setEditingProjectId(null)} className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">
+                            <X className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => {
+                            updateProjectDetails(p.project_id, editName, editDesc);
+                            setEditingProjectId(null);
+                          }} className="p-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white">
+                            <Check className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div 
+                          onClick={() => loadProject(p.project_id)}
+                          className="absolute inset-0 cursor-pointer z-0 rounded-xl"
+                        ></div>
+                        <div className="flex justify-between items-start mb-1 relative z-10 pointer-events-none">
+                          <h3 className="text-sm font-semibold text-white group-hover:text-blue-300 transition">{p.name}</h3>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
+                            {p.status}
+                          </span>
+                        </div>
+                        {p.description && (
+                          <p className="text-xs text-slate-400 line-clamp-2 relative z-10 pointer-events-none">{p.description}</p>
+                        )}
+                        <div className="mt-3 flex justify-between items-center relative z-10">
+                          <span className="text-[10px] text-slate-500 pointer-events-none">
+                            {new Date(p.updated_at).toLocaleString('id-ID')}
+                          </span>
+                          <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-2">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditName(p.name);
+                                setEditDesc(p.description || '');
+                                setEditingProjectId(p.project_id);
+                              }}
+                              className="p-1.5 rounded hover:bg-slate-700/50 text-slate-400 hover:text-blue-400 transition"
+                              title="Edit Proyek"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Hapus permanen proyek "${p.name}" beserta seluruh isinya?`)) {
+                                  deleteProject(p.project_id);
+                                }
+                              }}
+                              className="p-1.5 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition"
+                              title="Hapus Proyek"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

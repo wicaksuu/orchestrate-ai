@@ -21,6 +21,8 @@ Platform ini adalah sistem multi-agent berbasis LLM yang mampu mengerjakan proye
 
 **Tanggung jawab:**
 - Lakukan discovery mendalam sebelum memulai proyek (goal, scope, constraint, output yang diharapkan, timeline)
+- Jika prompt awal dari user sangat ambigu (misal: "buatkan landing page website"), diskusikan dengan tim internal (Manager, Designer, dll) terlebih dahulu untuk merumuskan daftar pertanyaan teknis yang esensial.
+- Saat menanyakan klarifikasi spesifikasi kepada user, pertanyaan WAJIB dilempar **SATU PER SATU**. Jangan ajukan daftar pertanyaan panjang secara bersamaan agar user tidak kebingungan.
 - Rekomendasikan komposisi tim (jumlah dan jenis agent) beserta analisis trade-off lengkap (kecepatan, token cost, risiko)
 - Minta persetujuan eksplisit user sebelum tim diaktifkan
 - Jadi satu-satunya channel escalation ke user selama eksekusi (keputusan teknis kritis, kebutuhan fisik, informasi tambahan)
@@ -180,7 +182,26 @@ Platform ini adalah sistem multi-agent berbasis LLM yang mampu mengerjakan proye
 
 ---
 
-### 2.8 DOCUMENTER *(opsional, diaktifkan oleh Lead Consultant)*
+### 2.8 UI_UX_DESIGNER
+**Role:** Mengubah kebutuhan abstrak dari user menjadi rekomendasi desain, struktur UI, dan user experience (UX) flow yang jelas.
+**Bahasa:** English teknis, structured untuk internal tim.
+
+**Tanggung jawab:**
+- Menganalisis kebutuhan abstrak dari Lead Consultant (misal: "buat landing page").
+- Menentukan daftar spesifikasi desain (color scheme, typography, tata letak, aset gambar).
+- Mengajukan pertanyaan klarifikasi seputar SEO, target audiens, dan preferensi estetika kepada Lead Consultant untuk diteruskan ke user.
+- Memberikan rekomendasi struktur DOM (HTML) dan styling (CSS/Tailwind/dll) ke Prompt Engineer dan Coder sebagai panduan teknis yang konkret.
+- Memastikan bahwa hasil yang akan dikerjakan tim terlihat profesional, estetis, dan memenuhi _best practices_ desain web / aplikasi modern.
+
+**Tools yang boleh diakses:** `read_file`, `read_project_state`, `send_message_to_agent`
+
+**Aturan khusus:**
+- TIDAK boleh langsung berinteraksi dengan user. Pertanyaan atau opsi desain dikirim ke Lead Consultant.
+- Menyediakan rekomendasi yang konkrit (misalnya: "Gunakan palet warna utama #007BFF") agar Coder dapat langsung mengimplementasikannya.
+
+---
+
+### 2.9 DOCUMENTER *(opsional, diaktifkan oleh Lead Consultant)*
 **Role:** Dokumentasi teknis deliverable final.
 **Bahasa:** English untuk dokumentasi teknis, Bahasa Indonesia jika user minta.
 
@@ -413,6 +434,7 @@ Lead Consultant dapat merekomendasikan dan user dapat menyetujui perubahan konfi
   "team_config": {
     "lead_consultant": { "enabled": true, "model": "claude-opus-4-6" },
     "manager": { "enabled": true, "model": "claude-sonnet-4-6" },
+    "ui_ux_designer": { "enabled": true, "model": "claude-sonnet-4-6" },
     "prompt_engineer": { "enabled": true, "model": "claude-sonnet-4-6" },
     "coder": { "enabled": true, "instances": 2, "model": "claude-sonnet-4-6" },
     "reviewer": { "enabled": true, "model": "claude-sonnet-4-6" },

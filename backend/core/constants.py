@@ -3,6 +3,7 @@ from enum import Enum
 class AgentName(str, Enum):
     LEAD_CONSULTANT = "LeadConsultant"
     MANAGER = "Manager"
+    UI_UX_DESIGNER = "UiUxDesigner"
     PROMPT_ENGINEER = "PromptEngineer"
     CODER = "Coder"
     REVIEWER = "Reviewer"

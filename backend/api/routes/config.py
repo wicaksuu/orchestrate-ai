@@ -97,11 +97,16 @@ async def validate_api_key(req: KeyValidationRequest):
                     return {"valid": False, "message": f"Koneksi gagal (Status {res.status_code}): Kredensial tidak valid."}
                     
             elif provider == "gemini":
-                # Panggil endpoint list models Gemini untuk verifikasi key
-                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
-                res = await client.get(url)
+                # Panggil endpoint list models Gemini menggunakan header X-goog-api-key
+                url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+                gemini_headers = {
+                    "Content-Type": "application/json",
+                    "X-goog-api-key": key,
+                }
+                mini_payload = {"contents": [{"parts": [{"text": "hi"}]}], "generationConfig": {"maxOutputTokens": 1}}
+                res = await client.post(url, headers=gemini_headers, json=mini_payload)
                 if res.status_code == 200:
-                    return {"valid": True, "message": "Koneksi sukses! API Key Gemini valid."}
+                    return {"valid": True, "message": "Koneksi sukses! API Key Gemini valid & siap digunakan."}
                 else:
                     return {"valid": False, "message": f"Koneksi gagal (Status {res.status_code}): API Key Gemini tidak valid."}
             else:

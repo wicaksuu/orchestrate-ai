@@ -24,10 +24,10 @@ done
 wait_for_status() {
   local project_id="$1"
   local expected="$2"
-  local timeout="${3:-30}"
-  echo "Menunggu status proyek menjadi '$expected'..."
+  local timeout="${3:-300}"
+  echo "Menunggu status proyek menjadi '$expected' (timeout $timeout s)..."
   for idx in $(seq 1 "$timeout"); do
-    status=$(curl -s "http://127.0.0.1/api/project?project_id=$project_id" | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"])')
+    status=$(curl -s "http://127.0.0.1/api/project?project_id=$project_id" | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"])' 2>/dev/null || echo "error")
     if [ "$status" = "$expected" ]; then
       echo "Status berhasil berubah menjadi '$expected'!"
       return 0
@@ -67,14 +67,24 @@ P=$(create_project "SmokeAPI" "CI integration smoke test")
 echo "Project ID Baru: $P"
 
 echo "=== 7. Smoke Test Konfigurasi AI Agent ==="
-AI_CONFIG=$(curl -s -X POST "http://127.0.0.1/api/config/agent-ai?project_id=$P" \
-  -H 'Content-Type: application/json' \
-  -d '{"agent_name":"LeadConsultant","provider":"simulated","model":"simulated","api_key":"dummy-smoke-token"}')
+AI_PROVIDER="${LLM_PROVIDER:-gemini}"
+AI_MODEL="${DEFAULT_MODEL:-gemini-flash-latest}"
+if [ "$AI_PROVIDER" = "openai" ] || [ "$AI_PROVIDER" = "codex" ]; then
+  AI_MODEL="${OPENAI_MODEL:-gpt-5.5}"
+fi
 
-echo "$AI_CONFIG" | python3 -c 'import sys,json; data=json.load(sys.stdin); assert data["api_key_configured"] is True; assert "api_key" not in data'
+for AGENT in LeadConsultant Manager PromptEngineer Coder Reviewer Tester Integrator; do
+  curl -s -X POST "http://127.0.0.1/api/config/agent-ai?project_id=$P" \
+    -H 'Content-Type: application/json' \
+    -d "{\"agent_name\":\"$AGENT\",\"provider\":\"$AI_PROVIDER\",\"model\":\"$AI_MODEL\"}" > /dev/null
+done
+
+AI_CONFIG=$(curl -s "http://127.0.0.1/api/config/agent-ai?project_id=$P")
+
+echo "$AI_CONFIG" | python3 -c 'import sys,json; data=json.load(sys.stdin); assert len(data) == 7; assert all(item["provider"] != "simulated" for item in data); assert all("api_key" not in item for item in data)'
 
 AI_CONFIG_PUBLIC=$(curl -s "http://127.0.0.1/api/config/agent-ai?project_id=$P")
-echo "$AI_CONFIG_PUBLIC" | python3 -c 'import sys,json; data=json.load(sys.stdin); assert data[0]["agent_name"] == "LeadConsultant"; assert data[0]["api_key_configured"] is True; assert "api_key" not in data[0]'
+echo "$AI_CONFIG_PUBLIC" | python3 -c 'import sys,json; data=json.load(sys.stdin); assert len(data) == 7; assert all(item["provider"] != "simulated" for item in data); assert all("api_key" not in item for item in data)'
 if echo "$AI_CONFIG_PUBLIC" | grep -q "dummy-smoke-token"; then
   echo "ERROR: API token mentah bocor pada response publik."
   exit 1
@@ -101,8 +111,11 @@ curl -s -X POST http://127.0.0.1/api/chat \
   -H 'Content-Type: application/json' \
   -d "{\"project_id\":\"$P\",\"content\":\"saya setuju, mulai\"}" > /dev/null
 
-# Tunggu status beralih ke completed (workflow berjalan secara background)
-wait_for_status "$P" "completed"
+# Tunggu status beralih ke completed (workflow LLM berjalan secara background, butuh waktu lebih lama)
+wait_for_status "$P" "completed" 180
+
+FILES_JSON=$(curl -s "http://127.0.0.1/api/project/files?project_id=$P")
+echo "$FILES_JSON" | python3 -c 'import sys,json; data=json.load(sys.stdin); paths={item["path"] for item in data if not item["is_dir"]}; assert len(paths) > 0, "LLM seharusnya menghasilkan minimal 1 file di workspace"'
 
 echo "=== 8. Verifikasi Kebersihan Cache Python ==="
 CACHE_FILES=$(find backend -name '__pycache__' -o -name '*.pyc' -o -name '.pytest_cache')

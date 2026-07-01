@@ -28,7 +28,13 @@ Langkah mudah untuk memulai seluruh platform menggunakan Docker Compose:
 
 ## Status MVP & Limitasi
 
-- **Simulated By Default:** Untuk mempermudah pengujian dan development offline tanpa network call, platform menggunakan **Simulated LLM Provider** secara default.
+- **Real Provider Only:** Runtime platform tidak memakai provider simulasi. Pastikan salah satu provider real dikonfigurasi di `.env` atau panel konfigurasi agent.
+- **Google Gemini Integration:** Default runtime menggunakan Gemini. Konfigurasi minimal:
+  ```env
+  LLM_PROVIDER=gemini
+  GEMINI_API_KEY=your_gemini_api_key_here
+  DEFAULT_MODEL=gemini-flash-latest
+  ```
 - **Anthropic Claude Integration:** Anda dapat mengaktifkan integrasi Claude asli dengan menyetel variabel berikut pada berkas `.env`:
   ```env
   LLM_PROVIDER=anthropic

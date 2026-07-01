@@ -24,8 +24,8 @@ class GeminiLLMProvider(LLMProvider):
     model: str,
     max_tokens: int = 4000,
   ) -> str:
-    # Model default gratis adalah gemini-1.5-flash jika model tidak dispesifikasikan dengan valid
-    gemini_model = model if model.startswith("gemini-") else "gemini-1.5-flash"
+    # Default ke gemini-flash-latest jika model tidak dispesifikasikan
+    gemini_model = model if model.startswith("gemini-") else "gemini-flash-latest"
     
     # Konversi pesan ke format Gemini API (role 'assistant' diubah menjadi 'model')
     gemini_contents = []
@@ -50,36 +50,72 @@ class GeminiLLMProvider(LLMProvider):
         "parts": [{"text": system_prompt}]
       }
 
-    url = f"{self.base_url}/models/{gemini_model}:generateContent?key={self.api_key}"
-    headers = {"Content-Type": "application/json"}
+    # Daftar model gratis untuk load balancing/fallback (berdasarkan dokumen kuota AI Studio pengguna)
+    FREE_FALLBACK_MODELS = [
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-3-flash",
+        "gemini-3.1-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-pro",
+        "gemini-2-flash",
+        "gemini-2-flash-lite"
+    ]
+    
+    # Model utama ditaruh di awal, diikuti dengan model fallback
+    models_to_try = [gemini_model]
+    for fm in FREE_FALLBACK_MODELS:
+        if fm != gemini_model:
+            models_to_try.append(fm)
+
+    headers = {
+      "Content-Type": "application/json",
+      "X-goog-api-key": self.api_key,
+    }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-      try:
-        response = await client.post(url, headers=headers, json=payload)
-        if response.status_code != 200:
-          logger.error(f"Gemini API Error: Status {response.status_code} - {response.text}")
-          raise LLMProviderError(f"Gemini API mengembalikan status {response.status_code}: {response.text}")
+      for idx, current_model in enumerate(models_to_try):
+        url = f"{self.base_url}/models/{current_model}:generateContent"
+        
+        try:
+          response = await client.post(url, headers=headers, json=payload)
           
-        data = response.json()
-        candidates = data.get("candidates", [])
-        if not candidates:
-          # Cek jika terkena filter keamanan Google
-          prompt_feedback = data.get("promptFeedback", {})
-          if prompt_feedback:
-            raise LLMProviderError(f"Permintaan ditolak oleh filter keamanan Gemini: {prompt_feedback}")
-          raise LLMProviderError("Gemini API tidak mengembalikan respons teks (candidates kosong).")
+          if response.status_code in [429, 500, 503]:
+            # Jika ini adalah model terakhir, jangan continue, biarkan jatuh ke exception
+            if idx == len(models_to_try) - 1:
+              logger.error(f"Semua model fallback habis. Model {current_model} gagal: {response.text}")
+              raise LLMProviderError(f"Semua model Gemini melampaui limit. Terakhir: {current_model} - {response.text}")
+            
+            logger.warning(f"Model {current_model} terkena {response.status_code}. Melakukan fallback ke model selanjutnya...")
+            continue
+            
+          if response.status_code != 200:
+            logger.error(f"Gemini API Error: Status {response.status_code} - {response.text}")
+            raise LLMProviderError(f"Gemini API mengembalikan status {response.status_code}: {response.text}")
+            
+          data = response.json()
+          candidates = data.get("candidates", [])
+          if not candidates:
+            prompt_feedback = data.get("promptFeedback", {})
+            if prompt_feedback:
+              raise LLMProviderError(f"Permintaan ditolak oleh filter keamanan Gemini: {prompt_feedback}")
+            raise LLMProviderError(f"Gemini API ({current_model}) tidak mengembalikan respons teks (candidates kosong).")
 
-        content = candidates[0].get("content", {})
-        parts = content.get("parts", [])
-        if not parts:
-          raise LLMProviderError("Struktur respons Gemini tidak valid (parts kosong).")
+          content = candidates[0].get("content", {})
+          parts = content.get("parts", [])
+          if not parts:
+            raise LLMProviderError(f"Struktur respons Gemini ({current_model}) tidak valid (parts kosong).")
 
-        return parts[0].get("text", "")
-      except httpx.HTTPError as e:
-        logger.error(f"HTTP error terjadi saat memanggil Gemini API: {e}")
-        raise LLMProviderError(f"Gagal menghubungi server Gemini: {str(e)}")
-      except Exception as e:
-        if isinstance(e, LLMProviderError):
-          raise e
-        logger.error(f"Error tidak terduga pada Gemini provider: {e}")
-        raise LLMProviderError(f"Terjadi error internal pada Gemini provider: {str(e)}")
+          return parts[0].get("text", "")
+          
+        except httpx.HTTPError as e:
+          logger.error(f"HTTP error terjadi saat memanggil Gemini API ({current_model}): {e}")
+          if idx == len(models_to_try) - 1:
+            raise LLMProviderError(f"Gagal menghubungi server Gemini pada semua percobaan: {str(e)}")
+          continue
+        except Exception as e:
+          if isinstance(e, LLMProviderError):
+            raise e
+          logger.error(f"Error tidak terduga pada Gemini provider: {e}")
+          raise LLMProviderError(f"Terjadi error internal pada Gemini provider: {str(e)}")

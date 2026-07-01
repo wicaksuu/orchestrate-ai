@@ -91,7 +91,7 @@ export function TeamConfigPanel() {
       Object.keys(models).map((agent) => {
         // Gunakan API Key global sebagai fallback jika individual key kosong
         let selectedKey = apiKeys[agent] || '';
-        const selectedProvider = providers[agent] || 'simulated';
+        const selectedProvider = providers[agent] || 'gemini';
         
         if (!selectedKey) {
           if (selectedProvider === 'anthropic' && globalAnthropicKey) {
@@ -296,7 +296,7 @@ export function TeamConfigPanel() {
                   )}
                 </div>
                 <select
-                  value={providers[agent] || 'simulated'}
+                  value={providers[agent] || 'gemini'}
                   onChange={(e) => {
                     const provider = e.target.value as AIProvider;
                     const defaultModel =
@@ -305,14 +305,13 @@ export function TeamConfigPanel() {
                         : provider === 'anthropic'
                           ? 'claude-sonnet-4-6'
                           : provider === 'gemini'
-                            ? 'gemini-1.5-flash'
-                            : 'simulated';
+                            ? 'gemini-flash-latest'
+                            : 'gemini-flash-latest';
                     setProviders({ ...providers, [agent]: provider });
                     setModels({ ...models, [agent]: defaultModel });
                   }}
                   className="bg-slate-950 border border-slate-850 hover:border-slate-750 text-white text-xs rounded-lg p-2 outline-none transition"
                 >
-                  <option value="simulated">Simulated</option>
                   <option value="openai">OpenAI</option>
                   <option value="codex">Codex (OpenAI)</option>
                   <option value="anthropic">Anthropic</option>
@@ -323,14 +322,19 @@ export function TeamConfigPanel() {
                   onChange={(e) => setModels({ ...models, [agent]: e.target.value })}
                   className="bg-slate-950 border border-slate-850 hover:border-slate-750 text-white text-xs rounded-lg p-2 outline-none transition"
                 >
-                  <option value="simulated">simulated</option>
+                  {/* Google Gemini Flash Models */}
+                  <option value="gemini-flash-latest">✦ Gemini 3.5 Flash (Latest)</option>
+                  <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+                  <option value="gemini-3.0-flash">Gemini 3 Flash</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                  <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                  {/* OpenAI Models */}
                   <option value="gpt-5.5">gpt-5.5</option>
                   <option value="gpt-5">gpt-5</option>
+                  {/* Anthropic Models */}
                   <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
                   <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
                   <option value="claude-opus-4-6">claude-opus-4-6</option>
-                  <option value="gemini-1.5-flash">gemini-1.5-flash (Gratis)</option>
-                  <option value="gemini-2.5-flash">gemini-2.5-flash (Gratis)</option>
                 </select>
                 <input
                   type="password"

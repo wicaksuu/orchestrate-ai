@@ -13,6 +13,7 @@ import {
 
 interface SigmaState {
   project: ProjectState | null;
+  projectList: ProjectState[];
   agents: AgentState[];
   messages: AgentMessage[];
   escalations: EscalationRequest[];
@@ -25,6 +26,9 @@ interface SigmaState {
   // Actions
   initProject: (name: string, description?: string, externalPath?: string) => Promise<void>;
   loadProject: (projectId: string) => Promise<void>;
+  fetchProjectList: () => Promise<void>;
+  deleteProject: (projectId: string) => Promise<void>;
+  updateProjectDetails: (projectId: string, name: string, description?: string) => Promise<void>;
   loadAgents: () => Promise<void>;
   loadLogs: () => Promise<void>;
   loadConfig: () => Promise<void>;
@@ -45,6 +49,7 @@ interface SigmaState {
 
 export const useSigmaStore = create<SigmaState>((set: any, get: any) => ({
   project: null,
+  projectList: [],
   agents: [],
   messages: [],
   escalations: [],
@@ -53,6 +58,43 @@ export const useSigmaStore = create<SigmaState>((set: any, get: any) => ({
   events: [],
   loading: false,
   error: null,
+
+  fetchProjectList: async () => {
+    try {
+      const list = await api.getProjectList();
+      set({ projectList: list });
+    } catch (err: any) {
+      console.error(err);
+    }
+  },
+
+  deleteProject: async (projectId: string) => {
+    try {
+      await api.deleteProject(projectId);
+      const { projectList, project } = get();
+      set({ projectList: projectList.filter((p: ProjectState) => p.project_id !== projectId) });
+      if (project?.project_id === projectId) {
+        set({ project: null, messages: [], agents: [], events: [] });
+      }
+    } catch (err: any) {
+      console.error("Gagal menghapus proyek:", err);
+      throw err;
+    }
+  },
+
+  updateProjectDetails: async (projectId: string, name: string, description = '') => {
+    try {
+      const updated = await api.updateProject(projectId, name, description);
+      const { projectList, project } = get();
+      set({ 
+        projectList: projectList.map((p: ProjectState) => p.project_id === projectId ? updated : p),
+        project: project?.project_id === projectId ? updated : project
+      });
+    } catch (err: any) {
+      console.error("Gagal update proyek:", err);
+      throw err;
+    }
+  },
 
   initProject: async (name: string, description = '', externalPath = '') => {
     set({ loading: true, error: null, messages: [], escalations: [], agents: [], events: [], agentAISettings: [] });
