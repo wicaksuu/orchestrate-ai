@@ -180,9 +180,15 @@ class Orchestrator:
             # Menggunakan _get_agent_llm() — single source of truth
             history_msgs = await state_manager.get_messages(project_id)
             llm_messages = []
-            for msg in history_msgs[-10:]:  # batasi history
-                role = "user" if msg.message_type == MessageType.USER else "assistant"
-                llm_messages.append({"role": role, "content": msg.content})
+            for msg in history_msgs[-15:]:  # batasi history
+                if msg.message_type == MessageType.USER:
+                    llm_messages.append({"role": "user", "content": msg.content})
+                elif msg.message_type == MessageType.AGENT_COMM:
+                    if msg.metadata and msg.metadata.sender == AgentName.LEAD_CONSULTANT.value:
+                        llm_messages.append({"role": "assistant", "content": msg.content})
+                    else:
+                        sender = msg.metadata.sender if msg.metadata else "System"
+                        llm_messages.append({"role": "user", "content": f"[Internal Note from {sender}]: {msg.content}"})
 
             try:
                 llm_provider, model = await self._get_agent_llm(project_id, AgentName.LEAD_CONSULTANT)
@@ -216,11 +222,52 @@ class Orchestrator:
                 if project_state.status == "discovery" and not is_approval:
                     manager_sys = self.agents[AgentName.MANAGER].system_prompt
                     ui_ux_sys = self.agents[AgentName.UI_UX_DESIGNER].system_prompt
+                    
+                    manager_provider, manager_model = await self._get_agent_llm(project_id, AgentName.MANAGER)
+                    designer_provider, designer_model = await self._get_agent_llm(project_id, AgentName.UI_UX_DESIGNER)
+                    
+                    eval_prompt = f"User request: '{content}'. What are the critical missing requirements or technical considerations? Keep it brief and focused on your role."
+                    
+                    manager_coro = manager_provider.complete(
+                        system_prompt=manager_sys,
+                        messages=[{"role": "user", "content": eval_prompt}],
+                        model=manager_model
+                    )
+                    designer_coro = designer_provider.complete(
+                        system_prompt=ui_ux_sys,
+                        messages=[{"role": "user", "content": eval_prompt}],
+                        model=designer_model
+                    )
+                    
+                    manager_resp, designer_resp = await asyncio.gather(manager_coro, designer_coro)
+                    
+                    manager_msg = AgentMessage(
+                        id=str(uuid.uuid4()),
+                        project_id=project_id,
+                        message_type=MessageType.AGENT_COMM,
+                        content=manager_resp,
+                        priority=MessagePriority.LOW,
+                        metadata=MessageMetadata(sender=AgentName.MANAGER.value, receiver=AgentName.LEAD_CONSULTANT.value)
+                    )
+                    designer_msg = AgentMessage(
+                        id=str(uuid.uuid4()),
+                        project_id=project_id,
+                        message_type=MessageType.AGENT_COMM,
+                        content=designer_resp,
+                        priority=MessagePriority.LOW,
+                        metadata=MessageMetadata(sender=AgentName.UI_UX_DESIGNER.value, receiver=AgentName.LEAD_CONSULTANT.value)
+                    )
+                    await state_manager.append_message(project_id, manager_msg)
+                    await state_manager.append_message(project_id, designer_msg)
+                    
+                    await event_bus.publish(project_id, SigmaEvent(event_id=str(uuid.uuid4()), project_id=project_id, event_type="message", payload=manager_msg.model_dump()))
+                    await event_bus.publish(project_id, SigmaEvent(event_id=str(uuid.uuid4()), project_id=project_id, event_type="message", payload=designer_msg.model_dump()))
+
                     internal_discussion_context = (
-                        f"\n\n[SYSTEM] To help analyze the request, the manager and designer provide the following input:\n"
-                        f"- Manager suggests asking about the main goal and scope of the project.\n"
-                        f"- UI/UX Designer suggests defining the design style, target audience, and layout preferences.\n"
-                        f"CHOOSE ONLY ONE most important question to ask the user right now. Do not ask more than one question at a time."
+                        f"\n\n[SYSTEM] To help analyze the request, the manager and designer provide the following REAL input:\n"
+                        f"- Manager says: '{manager_resp}'\n"
+                        f"- UI/UX Designer says: '{designer_resp}'\n"
+                        f"Based on their input, CHOOSE ONLY ONE most important question to ask the user right now. Do not ask more than one question at a time."
                     )
                     enriched_system_prompt += internal_discussion_context
 
